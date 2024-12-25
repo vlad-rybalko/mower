@@ -54,17 +54,50 @@ export const useEnemyStore = defineStore('enemy', {
             });
         },
 
-        // Движение врагов к игроку
+        // Движение врагов
         updateEnemyPositions(playerX: number, playerY: number) {
             this.enemies.forEach((enemy) => {
+                // Если у врага ещё нет направления, задаём его случайным образом
+                if (!enemy.currentDirection) {
+                    enemy.currentDirection = Math.random() * 2 * Math.PI; // случайный угол (направление)
+                    enemy.lastDirectionChange = Date.now(); // запоминаем время изменения направления
+                }
+
+                // Проверяем, нужно ли убегать
                 const dx = playerX - enemy.x;
                 const dy = playerY - enemy.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+                const distanceToPlayer = Math.sqrt(dx * dx + dy * dy);
 
-                if (distance > enemy.speed) {
-                    enemy.x += (dx / distance) * enemy.speed;
-                    enemy.y += (dy / distance) * enemy.speed;
+                if (distanceToPlayer <= 300) {
+                    // Если игрок в радиусе убегания, враги бегут от него
+                    const escapeDx = enemy.x - playerX;
+                    const escapeDy = enemy.y - playerY;
+                    const escapeDistance = Math.sqrt(escapeDx * escapeDx + escapeDy * escapeDy);
+
+                    if (escapeDistance > enemy.speed) {
+                        enemy.x += (escapeDx / escapeDistance) * enemy.speed;
+                        enemy.y += (escapeDy / escapeDistance) * enemy.speed;
+                    }
+                } else {
+                    // Если игрок вне радиуса, враги двигаются в выбранном направлении
+                    const randomSpeed = enemy.speed;
+                    enemy.x += Math.cos(enemy.currentDirection) * randomSpeed;
+                    enemy.y += Math.sin(enemy.currentDirection) * randomSpeed;
                 }
+
+                // Проверяем, нужно ли обновить направление
+                const now = Date.now();
+                if (now - enemy.lastDirectionChange > Math.random() * 2000 + 1000) {
+                    // от 2 до 5 секунд
+                    enemy.currentDirection = Math.random() * 2 * Math.PI; // новое случайное направление
+                    enemy.lastDirectionChange = now; // обновляем время изменения направления
+                }
+
+                // Ограничиваем движение врагов границами карты
+                if (enemy.x < 0) enemy.x = 0;
+                if (enemy.x > window.innerWidth) enemy.x = window.innerWidth;
+                if (enemy.y < 0) enemy.y = 0;
+                if (enemy.y > window.innerHeight) enemy.y = window.innerHeight;
             });
         },
 

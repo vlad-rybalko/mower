@@ -11,6 +11,7 @@
 
     // Импорт изображений
     import playerImageSrc from '../assets/player.png';
+    import katanaImageSrc from '../assets/braid.png';
     import enemyImage1 from '../assets/enemy1.png';
     import enemyImage2 from '../assets/enemy2.png';
     import enemyImage3 from '../assets/enemy3.png';
@@ -31,6 +32,10 @@
     const playerImage = new Image();
     playerImage.src = playerImageSrc;
 
+    // Загрузка изображения катаны
+    const katanaImage = new Image();
+    katanaImage.src = katanaImageSrc;
+
     // Загрузка изображений врагов
     const enemyImages = [
         enemyImage1,
@@ -46,10 +51,29 @@
         return img;
     });
 
+    let katanaAngle = 360; // Угол вращения катаны
+    let katanaAnimating = false; // Флаг анимации катаны
+
     // Рисуем игрока
     const drawPlayer = () => {
         if (ctx.value && playerImage.complete) {
-            ctx.value.drawImage(playerImage, playerStore.x - 20, playerStore.y - 20, 70, 70); // Размер изображения 40x40
+            ctx.value.drawImage(playerImage, playerStore.x - 35, playerStore.y - 35, 70, 70); // Размер изображения 70x70
+        }
+    };
+
+    // Рисуем катану
+    const drawKatana = () => {
+        if (ctx.value && katanaImage.complete && katanaAnimating) {
+            ctx.value.save();
+
+            // Перемещаем центр вращения в положение игрока
+            ctx.value.translate(playerStore.x, playerStore.y);
+            ctx.value.rotate((katanaAngle * Math.PI) / 180);
+
+            // Рисуем катану (смещаем её от центра игрока)
+            ctx.value.drawImage(katanaImage, 30, -15, 80, 50);
+
+            ctx.value.restore();
         }
     };
 
@@ -68,6 +92,22 @@
                 }
             });
         }
+    };
+
+    // Анимация вращения катаны
+    const animateKatana = () => {
+        if (!katanaAnimating) return;
+
+        katanaAngle += 15; // Увеличиваем угол
+
+        // Останавливаем анимацию после 360°
+        if (katanaAngle >= 360) {
+            katanaAnimating = false;
+            katanaAngle = 0;
+            return;
+        }
+
+        requestAnimationFrame(animateKatana);
     };
 
     // Перемещение игрока к цели
@@ -107,18 +147,18 @@
     };
 
     // Обработка атаки игрока
-    const handleAttack = (event: KeyboardEvent) => {
-        if (event.code === 'Space') {
-            if (playerStore.currentWeapon === 'katana') {
-                enemyStore.enemies = enemyStore.enemies.filter((enemy) => {
-                    const dx = playerStore.x - enemy.x;
-                    const dy = playerStore.y - enemy.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
+    const handleAttack = () => {
+        if (playerStore.currentWeapon === 'katana' && !katanaAnimating) {
+            katanaAnimating = true;
+            animateKatana();
 
-                    // Убиваем врагов в радиусе 50
-                    return distance > 150;
-                });
-            }
+            // Убиваем врагов в радиусе 150
+            enemyStore.enemies = enemyStore.enemies.filter((enemy) => {
+                const dx = playerStore.x - enemy.x;
+                const dy = playerStore.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance > 150;
+            });
         }
     };
 
@@ -130,11 +170,14 @@
             // Рисуем игрока
             drawPlayer();
 
+            // Рисуем катану
+            drawKatana();
+
             // Рисуем врагов
             drawEnemies();
 
             // Проверяем столкновения
-            checkCollisions();
+            // checkCollisions();
         }
 
         requestAnimationFrame(updateCanvas);
@@ -158,7 +201,7 @@
             setInterval(() => {
                 const randomImage = enemyImages[Math.floor(Math.random() * enemyImages.length)];
                 enemyStore.spawnEnemy(randomImage); // Передаём случайное изображение
-            }, 3000);
+            }, 1500);
 
             // Обновляем позиции врагов каждые 16 мс
             setInterval(() => {
@@ -176,6 +219,7 @@
 
         // Слушаем нажатие клавиши пробел на объекте window
         window.addEventListener('keydown', handleAttack);
+        window.addEventListener('click', handleAttack);
         window.addEventListener('resize', resizeCanvas);
     });
 
