@@ -11,6 +11,7 @@ export const usePlayerStore = defineStore('player', {
         // Координаты игрока
         x: 50,
         y: 50,
+        speed: 5,
 
         // Параметры здоровья
         maxHealth: 100, // Максимальное здоровье

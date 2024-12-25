@@ -1,5 +1,5 @@
 <template>
-    <div class="game-container" @mousemove="updateTargetPosition" ref="gameField">
+    <div class="canvas-container" @mousemove="updateTargetPosition">
         <canvas ref="canvas" />
     </div>
 </template>
@@ -7,93 +7,128 @@
 <script setup lang="ts">
     import { ref, onMounted, onUnmounted } from 'vue';
     import { usePlayerStore } from './stores/player';
+    import { useEnemyStore } from './stores/enemyStore';
 
-    // Состояние
-    const playerStore = usePlayerStore();
     const canvas = ref<HTMLCanvasElement | null>(null);
     const ctx = ref<CanvasRenderingContext2D | null>(null);
-    const playerSize = 30; // Размер игрока
+    const playerStore = usePlayerStore();
+    const enemyStore = useEnemyStore();
 
-    // Переменные для целевой точки
-    const targetX = ref(playerStore.x);
-    const targetY = ref(playerStore.y);
-
-    // Скорость движения
-    const speed = 3; // Чем больше, тем быстрее
-
-    // Обновляем размеры Canvas
-    const updateCanvasSize = () => {
-        if (canvas.value) {
-            const container = canvas.value.parentElement as HTMLElement;
-            canvas.value.width = container.offsetWidth;
-            canvas.value.height = container.offsetHeight;
-            drawPlayer(); // Перерисовать игрока после изменения размеров
-        }
-    };
+    // Целевая позиция игрока
+    const targetPosition = ref({ x: playerStore.x, y: playerStore.y });
 
     // Рисуем игрока
     const drawPlayer = () => {
-        if (ctx.value && canvas.value) {
-            const { x, y } = playerStore;
-            ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height); // Очистка поля
-            ctx.value.fillStyle = '#3498db'; // Цвет игрока
-            ctx.value.fillRect(x, y, playerSize, playerSize); // Рисуем игрока
+        if (ctx.value) {
+            ctx.value.beginPath();
+            ctx.value.arc(playerStore.x, playerStore.y, 20, 0, Math.PI * 2);
+            ctx.value.fillStyle = 'blue';
+            ctx.value.fill();
+            ctx.value.closePath();
         }
     };
 
-    // Обновляем целевую позицию на основе положения мыши
-    const updateTargetPosition = (event: MouseEvent) => {
-        if (canvas.value) {
-            const rect = canvas.value.getBoundingClientRect();
-            targetX.value = event.clientX - rect.left - playerSize / 2;
-            targetY.value = event.clientY - rect.top - playerSize / 2;
+    // Рисуем врагов
+    const drawEnemies = () => {
+        if (ctx.value) {
+            enemyStore.enemies.forEach((enemy) => {
+                ctx.value.beginPath();
+                ctx.value.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+                ctx.value.fillStyle = 'red';
+                ctx.value.fill();
+                ctx.value.closePath();
+            });
         }
     };
 
-    // Постоянное движение игрока к цели
-    const moveTowardsTarget = () => {
-        const dx = targetX.value - playerStore.x;
-        const dy = targetY.value - playerStore.y;
+    // Перемещение игрока к цели
+    const movePlayerTowardsTarget = () => {
+        // console.log('movePlayerTowardsTarget');
+        const dx = targetPosition.value.x - playerStore.x;
+        const dy = targetPosition.value.y - playerStore.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > speed) {
-            // Вычисляем шаг
-            const stepX = (dx / distance) * speed;
-            const stepY = (dy / distance) * speed;
-            playerStore.move(stepX, stepY);
+        if (distance > playerStore.speed) {
+            playerStore.move(
+                (dx / distance) * playerStore.speed,
+                (dy / distance) * playerStore.speed,
+            );
         }
-
-        drawPlayer();
-        requestAnimationFrame(moveTowardsTarget); // Постоянное обновление
     };
 
-    // Инициализация
-    onMounted(() => {
-        if (canvas.value) {
-            ctx.value = canvas.value.getContext('2d');
-            updateCanvasSize(); // Устанавливаем размер при загрузке
-            moveTowardsTarget(); // Запускаем движение
+    // Метод для обновления целевой позиции игрока при движении мыши
+    const updateTargetPosition = (event: MouseEvent) => {
+        const rect = canvas.value.getBoundingClientRect();
+        targetPosition.value.x = event.clientX - rect.left;
+        targetPosition.value.y = event.clientY - rect.top;
+    };
+
+    // Обновление Canvas
+    const updateCanvas = () => {
+        if (ctx.value && canvas.value) {
+            ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height);
+
+            // Рисуем игрока
+            drawPlayer();
+
+            // Рисуем врагов
+            drawEnemies();
         }
 
-        // Слушаем изменения размера окна
-        window.addEventListener('resize', updateCanvasSize);
+        requestAnimationFrame(updateCanvas);
+    };
+
+    // Обновление размеров Canvas при изменении окна
+    const resizeCanvas = () => {
+        if (canvas.value) {
+            canvas.value.width = window.innerWidth;
+            canvas.value.height = window.innerHeight;
+        }
+    };
+
+    onMounted(() => {
+        if (canvas.value) {
+            canvas.value.width = window.innerWidth;
+            canvas.value.height = window.innerHeight;
+            ctx.value = canvas.value.getContext('2d');
+
+            // Спавн врагов каждые 3 секунды
+            setInterval(() => {
+                enemyStore.spawnEnemy();
+            }, 3000);
+
+            // Обновляем позиции врагов каждые 100 мс
+            setInterval(() => {
+                enemyStore.updateEnemyPositions(playerStore.x, playerStore.y);
+            }, 16);
+
+            // Двигаем игрока к цели каждые 16 мс
+            setInterval(() => {
+                movePlayerTowardsTarget();
+            }, 16);
+
+            // Запускаем рендеринг
+            updateCanvas();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
     });
 
-    // Очистка
     onUnmounted(() => {
-        window.removeEventListener('resize', updateCanvasSize);
+        window.removeEventListener('resize', resizeCanvas);
     });
 </script>
 
 <style scoped>
-    .game-container {
+    .canvas-container {
+        width: 100vw;
+        height: 100vh;
         position: relative;
-        width: 100vw; /* Занимаем всю ширину окна */
-        height: 100vh; /* Занимаем всю высоту окна */
         overflow: hidden;
     }
 
     canvas {
-        display: block; /* Убираем ненужные отступы */
+        display: block;
+        background-color: #f0f0f0;
     }
 </style>
