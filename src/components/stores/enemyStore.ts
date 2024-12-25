@@ -7,6 +7,7 @@ type Enemy = {
     y: number;
     radius: number;
     speed: number;
+    image: HTMLImageElement;
 };
 
 export const useEnemyStore = defineStore('enemy', {
@@ -18,11 +19,11 @@ export const useEnemyStore = defineStore('enemy', {
 
     actions: {
         // Спавн врага
-        spawnEnemy() {
+        spawnEnemy(image: HTMLImageElement) {
             const edge = Math.floor(Math.random() * 4); // Случайный край экрана
             let x = 0;
             let y = 0;
-            const radius = 20;
+            const radius = Math.floor(Math.random() * (60 - 30 + 1)) + 30;
 
             switch (edge) {
                 case 0: // Верх
@@ -44,11 +45,12 @@ export const useEnemyStore = defineStore('enemy', {
             }
 
             this.enemies.push({
-                id: this.nextId++,
+                id: this.nextId++, // Уникальный ID
                 x,
                 y,
                 radius,
                 speed: this.playerStore.speed * 0.5, // Скорость врага
+                image,
             });
         },
 
@@ -64,6 +66,10 @@ export const useEnemyStore = defineStore('enemy', {
                     enemy.y += (dy / distance) * enemy.speed;
                 }
             });
+        },
+
+        removeEnemy(id: number) {
+            this.enemies = this.enemies.filter((enemy) => enemy.id !== id);
         },
     },
 });
